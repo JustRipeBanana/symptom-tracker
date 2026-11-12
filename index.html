@@ -852,7 +852,19 @@
       <div class="form-group">
         <label for="setting-gemini-key">Gemini API Key</label>
         <input type="password" id="setting-gemini-key" placeholder="AIzaSy...">
-        <div class="drawer-helper-text">Gemini Flash key with automatic fallback on high demand.</div>
+        <div class="drawer-helper-text">Your API Key from Google AI Studio.</div>
+      </div>
+
+      <div class="form-group">
+        <label for="setting-gemini-model">Preferred AI Model</label>
+        <select id="setting-gemini-model">
+          <option value="gemini-2.5-flash">Gemini 2.5 Flash (Recommended)</option>
+          <option value="gemini-1.5-flash">Gemini 1.5 Flash (Highest Availability)</option>
+          <option value="gemini-2.0-flash">Gemini 2.0 Flash (Fast)</option>
+          <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+          <option value="gemini-1.5-flash-8b">Gemini 1.5 Flash 8B (Ultra Fast)</option>
+        </select>
+        <div class="drawer-helper-text">Auto-falls back to alternative Flash models if your selected model is busy.</div>
       </div>
 
       <div class="form-group">
@@ -1139,17 +1151,18 @@
        ========================================================= */
     const STORAGE_PREFIX = "gut_tracker_";
     const KEY_GEMINI_API = `${STORAGE_PREFIX}gemini_api_key`;
+    const KEY_GEMINI_MODEL = `${STORAGE_PREFIX}gemini_model`;
     const KEY_WEBHOOK_URL = `${STORAGE_PREFIX}webhook_url`;
     const KEY_PASSPHRASE = `${STORAGE_PREFIX}passphrase`;
     const STORAGE_KEY_PREFIX_FORM = "gut_tracker_wip_";
 
-    // Cascading model fallback list in order of priority
-    const GEMINI_MODELS = [
-      "gemini-3.8-flash",
-      "gemini-3.5-flash-lite",
+    // Verified model identifiers on Google AI Studio v1beta
+    const DEFAULT_FALLBACK_MODELS = [
       "gemini-2.5-flash",
+      "gemini-1.5-flash",
       "gemini-2.0-flash",
-      "gemini-1.5-flash"
+      "gemini-3.8-flash",
+      "gemini-1.5-flash-8b"
     ];
 
     // In-memory state for decomposed items
@@ -1174,11 +1187,13 @@
       const btnSave = document.getElementById("btn-save-settings");
 
       const inputGemini = document.getElementById("setting-gemini-key");
+      const selectModel = document.getElementById("setting-gemini-model");
       const inputWebhook = document.getElementById("setting-webhook-url");
       const inputPassphrase = document.getElementById("setting-passphrase");
 
       // Prepopulate
       inputGemini.value = localStorage.getItem(KEY_GEMINI_API) || "";
+      selectModel.value = localStorage.getItem(KEY_GEMINI_MODEL) || "gemini-2.5-flash";
       inputWebhook.value = localStorage.getItem(KEY_WEBHOOK_URL) || "";
       inputPassphrase.value = localStorage.getItem(KEY_PASSPHRASE) || "";
 
@@ -1198,6 +1213,7 @@
 
       btnSave.addEventListener("click", () => {
         localStorage.setItem(KEY_GEMINI_API, inputGemini.value.trim());
+        localStorage.setItem(KEY_GEMINI_MODEL, selectModel.value);
         localStorage.setItem(KEY_WEBHOOK_URL, inputWebhook.value.trim());
         localStorage.setItem(KEY_PASSPHRASE, inputPassphrase.value.trim());
         closeDrawer();
@@ -1232,7 +1248,6 @@
         row_data: rowData
       };
 
-      // mode: 'no-cors' allows submission to Google Apps Script Web App without CORS preflight failures
       await fetch(webhookUrl, {
         method: "POST",
         mode: "no-cors",
@@ -1244,10 +1259,17 @@
     }
 
     /* =========================================================
-       GEMINI MEAL DECOMPOSITION WITH MODEL FALLBACK
+       GEMINI MEAL DECOMPOSITION (WITH PROVEN CASCADE FALLBACK)
        ========================================================= */
     async function analyzeMealWithGemini() {
-      const apiKey = (localStorage.getItem(KEY_GEMINI_API) || "").trim();
+      // 1. Guard against file:// origin which blocks browser fetch requests
+      if (window.location.protocol === "file:") {
+        showToast("CORS Error: Please serve this file via localhost (e.g. Live Server) or HTTPS, not file://.", "error");
+        return;
+      }
+
+      const rawApiKey = localStorage.getItem(KEY_GEMINI_API) || "";
+      const apiKey = rawApiKey.trim();
       if (!apiKey) {
         showToast("Please enter your Gemini API Key in Settings.", "error");
         return;
@@ -1288,18 +1310,23 @@ Respond ONLY with valid, raw JSON matching this structure:
         }
       };
 
+      // Determine model sequence starting with user's preferred model
+      const preferredModel = localStorage.getItem(KEY_GEMINI_MODEL) || "gemini-2.5-flash";
+      const modelQueue = [preferredModel, ...DEFAULT_FALLBACK_MODELS.filter(m => m !== preferredModel)];
+
       let success = false;
       let lastErrorMessage = "";
 
-      // Try models sequentially if one is in high demand, rate-limited, or overloaded
-      for (let i = 0; i < GEMINI_MODELS.length; i++) {
-        const currentModel = GEMINI_MODELS[i];
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${apiKey}`;
+      for (let i = 0; i < modelQueue.length; i++) {
+        const currentModel = modelQueue[i];
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
         try {
           const response = await fetch(endpoint, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+              "Content-Type": "application/json"
+            },
             body: JSON.stringify(requestBody)
           });
 
@@ -1308,17 +1335,18 @@ Respond ONLY with valid, raw JSON matching this structure:
             const msg = errData?.error?.message || `HTTP ${response.status}`;
             lastErrorMessage = `${currentModel}: ${msg}`;
 
-            // Check for high-demand, overload, rate-limit, or missing model errors
-            const isOverloadedOrUnavailable = 
+            // If model is busy, rate-limited, or overloaded, try next fallback
+            const isRetryable = 
               response.status === 503 ||
               response.status === 429 ||
               response.status === 500 ||
               response.status === 404 ||
-              /high demand|overloaded|resource exhausted|quota|unavailable/i.test(msg);
+              /high demand|overloaded|resource exhausted|quota|unavailable|not found/i.test(msg);
 
-            if (isOverloadedOrUnavailable && i < GEMINI_MODELS.length - 1) {
-              console.warn(`${currentModel} is busy (${msg}). Trying fallback: ${GEMINI_MODELS[i + 1]}...`);
-              continue; // Try next fallback model
+            if (isRetryable && i < modelQueue.length - 1) {
+              console.warn(`${currentModel} unavailable (${msg}). Trying fallback in 400ms...`);
+              await new Promise(res => setTimeout(res, 400));
+              continue;
             } else {
               throw new Error(msg);
             }
@@ -1338,25 +1366,29 @@ Respond ONLY with valid, raw JSON matching this structure:
           saveFormState("form-meals");
 
           if (i > 0) {
-            showToast(`Meal analyzed via fallback (${currentModel})!`, "success");
+            showToast(`Analyzed via fallback (${currentModel})!`, "success");
           } else {
             showToast("Meal decomposed into atomic ingredients!", "success");
           }
 
           success = true;
-          break; // Successfully processed, exit fallback loop
+          break;
         } catch (err) {
           console.warn(`Attempt with ${currentModel} failed:`, err);
           lastErrorMessage = err.message;
-          // If this wasn't the last model, try the next one
-          if (i === GEMINI_MODELS.length - 1) {
-            break;
+          // Small backoff before testing next model
+          if (i < modelQueue.length - 1) {
+            await new Promise(res => setTimeout(res, 400));
           }
         }
       }
 
       if (!success) {
-        showToast(`AI Analysis failed: ${lastErrorMessage}`, "error");
+        if (/load failed|failed to fetch/i.test(lastErrorMessage)) {
+          showToast("Network / CORS error. Ensure page is loaded via HTTPS/localhost (not file://) and key is valid.", "error");
+        } else {
+          showToast(`AI Analysis failed: ${lastErrorMessage}`, "error");
+        }
       }
 
       btnAnalyze.classList.remove("loading");
