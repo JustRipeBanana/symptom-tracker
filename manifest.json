@@ -1,0 +1,15 @@
+{
+  "name": "Gut Tracker",
+  "short_name": "Tracker",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#090d16",
+  "icons": [
+    {
+      "src": "https://api.iconify.design/lucide:activity.svg?color=%2338bdf8",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ]
+}
