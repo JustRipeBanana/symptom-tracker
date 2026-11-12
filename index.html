@@ -852,7 +852,7 @@
       <div class="form-group">
         <label for="setting-gemini-key">Gemini API Key</label>
         <input type="password" id="setting-gemini-key" placeholder="AIzaSy...">
-        <div class="drawer-helper-text">Required for Gemini 3.8 Flash meal deconstruction.</div>
+        <div class="drawer-helper-text">Gemini Flash key with automatic fallback on high demand.</div>
       </div>
 
       <div class="form-group">
@@ -1143,6 +1143,15 @@
     const KEY_PASSPHRASE = `${STORAGE_PREFIX}passphrase`;
     const STORAGE_KEY_PREFIX_FORM = "gut_tracker_wip_";
 
+    // Cascading model fallback list in order of priority
+    const GEMINI_MODELS = [
+      "gemini-3.8-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-2.5-flash",
+      "gemini-2.0-flash",
+      "gemini-1.5-flash"
+    ];
+
     // In-memory state for decomposed items
     let decomposedIngredients = [];
     let detectedTriggers = [];
@@ -1235,7 +1244,7 @@
     }
 
     /* =========================================================
-       GEMINI 3.8 FLASH MEAL DECOMPOSITION
+       GEMINI MEAL DECOMPOSITION WITH MODEL FALLBACK
        ========================================================= */
     async function analyzeMealWithGemini() {
       const apiKey = (localStorage.getItem(KEY_GEMINI_API) || "").trim();
@@ -1253,8 +1262,6 @@
       const btnAnalyze = document.getElementById("btn-analyze-meal");
       btnAnalyze.classList.add("loading");
       btnAnalyze.disabled = true;
-
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
 
       const systemPrompt = `You are an expert clinical nutrition and digestive health AI.
 Deconstruct the user's meal into individual atomic ingredients and detect gastrointestinal triggers.
@@ -1281,38 +1288,79 @@ Respond ONLY with valid, raw JSON matching this structure:
         }
       };
 
-      try {
-        const response = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestBody)
-        });
+      let success = false;
+      let lastErrorMessage = "";
 
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          throw new Error(errData?.error?.message || `HTTP error ${response.status}`);
+      // Try models sequentially if one is in high demand, rate-limited, or overloaded
+      for (let i = 0; i < GEMINI_MODELS.length; i++) {
+        const currentModel = GEMINI_MODELS[i];
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${apiKey}`;
+
+        try {
+          const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody)
+          });
+
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            const msg = errData?.error?.message || `HTTP ${response.status}`;
+            lastErrorMessage = `${currentModel}: ${msg}`;
+
+            // Check for high-demand, overload, rate-limit, or missing model errors
+            const isOverloadedOrUnavailable = 
+              response.status === 503 ||
+              response.status === 429 ||
+              response.status === 500 ||
+              response.status === 404 ||
+              /high demand|overloaded|resource exhausted|quota|unavailable/i.test(msg);
+
+            if (isOverloadedOrUnavailable && i < GEMINI_MODELS.length - 1) {
+              console.warn(`${currentModel} is busy (${msg}). Trying fallback: ${GEMINI_MODELS[i + 1]}...`);
+              continue; // Try next fallback model
+            } else {
+              throw new Error(msg);
+            }
+          }
+
+          const data = await response.json();
+          const rawJsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!rawJsonText) throw new Error("No data returned from Gemini.");
+
+          const parsed = JSON.parse(rawJsonText);
+
+          decomposedIngredients = Array.isArray(parsed.ingredients) ? parsed.ingredients : [];
+          detectedTriggers = Array.isArray(parsed.triggers) ? parsed.triggers : [];
+          detectedFodmaps = Array.isArray(parsed.fodmap_categories) ? parsed.fodmap_categories : [];
+
+          renderDeconstructedUI();
+          saveFormState("form-meals");
+
+          if (i > 0) {
+            showToast(`Meal analyzed via fallback (${currentModel})!`, "success");
+          } else {
+            showToast("Meal decomposed into atomic ingredients!", "success");
+          }
+
+          success = true;
+          break; // Successfully processed, exit fallback loop
+        } catch (err) {
+          console.warn(`Attempt with ${currentModel} failed:`, err);
+          lastErrorMessage = err.message;
+          // If this wasn't the last model, try the next one
+          if (i === GEMINI_MODELS.length - 1) {
+            break;
+          }
         }
-
-        const data = await response.json();
-        const rawJsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!rawJsonText) throw new Error("No data returned from Gemini.");
-
-        const parsed = JSON.parse(rawJsonText);
-
-        decomposedIngredients = Array.isArray(parsed.ingredients) ? parsed.ingredients : [];
-        detectedTriggers = Array.isArray(parsed.triggers) ? parsed.triggers : [];
-        detectedFodmaps = Array.isArray(parsed.fodmap_categories) ? parsed.fodmap_categories : [];
-
-        renderDeconstructedUI();
-        saveFormState("form-meals");
-        showToast("Meal decomposed into atomic ingredients!", "success");
-      } catch (err) {
-        console.error("Gemini Error:", err);
-        showToast(`AI Analysis failed: ${err.message}`, "error");
-      } finally {
-        btnAnalyze.classList.remove("loading");
-        btnAnalyze.disabled = false;
       }
+
+      if (!success) {
+        showToast(`AI Analysis failed: ${lastErrorMessage}`, "error");
+      }
+
+      btnAnalyze.classList.remove("loading");
+      btnAnalyze.disabled = false;
     }
 
     function renderDeconstructedUI() {
@@ -1751,7 +1799,6 @@ Respond ONLY with valid, raw JSON matching this structure:
       setupBristolSelector();
       setupTabNavigation();
 
-      // Enter key helper for the ingredient addition input
       const addIngInput = document.getElementById("input-new-ingredient");
       if (addIngInput) {
         addIngInput.addEventListener("keydown", (e) => {
