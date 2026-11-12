@@ -1,0 +1,1778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="HealthTracker">
+  <meta name="theme-color" content="#09090b">
+  <link rel="manifest" href="manifest.json">
+  <title>Health & Symptom Tracker</title>
+
+  <style>
+    /* -------------------------------------------------------------
+       CSS RESET & MOBILE PWA FOUNDATIONS
+       ------------------------------------------------------------- */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    input, textarea, button, select {
+      font-family: inherit;
+      user-select: auto;
+    }
+
+    :root {
+      --bg-base: #09090b;
+      --bg-surface: #18181b;
+      --bg-surface-elevated: #27272a;
+      --bg-surface-active: #3f3f46;
+      --border-subtle: #27272a;
+      --border-active: #52525b;
+      --text-main: #f4f4f5;
+      --text-muted: #a1a1aa;
+      --text-dim: #71717a;
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.15);
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #f43f5e;
+      --purple: #a855f7;
+      --nav-height: 64px;
+      --safe-top: env(safe-area-inset-top, 20px);
+      --safe-bottom: env(safe-area-inset-bottom, 20px);
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* -------------------------------------------------------------
+       STICKY APP HEADER & GEAR BUTTON
+       ------------------------------------------------------------- */
+    .app-header {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(9, 9, 11, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding-top: var(--safe-top);
+      padding-left: 20px;
+      padding-right: 16px;
+      height: calc(54px + var(--safe-top));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .app-title {
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+      color: var(--text-main);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge-sync {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .sync-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--emerald);
+      box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+    }
+
+    .icon-btn {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .icon-btn:active {
+      transform: scale(0.92);
+      color: var(--text-main);
+      border-color: var(--accent);
+    }
+
+    .icon-btn svg {
+      width: 20px;
+      height: 20px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+    }
+
+    /* -------------------------------------------------------------
+       MAIN SCROLL AREA
+       ------------------------------------------------------------- */
+    .app-main {
+      flex: 1;
+      padding: 16px 16px calc(var(--nav-height) + var(--safe-bottom) + 24px) 16px;
+      max-width: 540px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* -------------------------------------------------------------
+       CARDS & FORM ELEMENTS
+       ------------------------------------------------------------- */
+    .section-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    input[type="datetime-local"],
+    textarea,
+    select {
+      width: 100%;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: var(--text-main);
+      font-size: 16px;
+      line-height: 1.4;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    textarea {
+      resize: none;
+      min-height: 85px;
+    }
+
+    /* -------------------------------------------------------------
+       AI ACTION & CHIP PILLS UI
+       ------------------------------------------------------------- */
+    .ai-action-bar {
+      margin-top: 10px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .btn-ai {
+      background: linear-gradient(135deg, #0284c7, #6366f1);
+      color: #ffffff;
+      border: none;
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s ease;
+    }
+
+    .btn-ai:active {
+      transform: scale(0.97);
+      opacity: 0.9;
+    }
+
+    .btn-ai:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .btn-ai .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+
+    .btn-ai.loading .spinner {
+      display: inline-block;
+    }
+
+    .btn-ai.loading .ai-label {
+      opacity: 0.6;
+    }
+
+    .chips-wrapper {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+      min-height: 38px;
+    }
+
+    .chip {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-active);
+      color: var(--text-main);
+      padding: 6px 10px 6px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      animation: fadeIn 0.15s ease;
+    }
+
+    .chip-remove {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+    }
+
+    .chip-remove:hover, .chip-remove:active {
+      color: var(--rose);
+      background: rgba(244, 63, 94, 0.15);
+    }
+
+    .chip-add-box {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .chip-add-box input {
+      flex: 1;
+      padding: 8px 12px;
+      font-size: 14px;
+    }
+
+    .btn-chip-add {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--accent);
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-chip-add:active {
+      background: var(--bg-surface-active);
+    }
+
+    .analysis-section {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px dashed var(--border-subtle);
+    }
+
+    .badge-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .tag-badge {
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .tag-badge.trigger {
+      background: rgba(244, 63, 94, 0.15);
+      color: #fda4af;
+      border: 1px solid rgba(244, 63, 94, 0.3);
+    }
+
+    .tag-badge.fodmap {
+      background: rgba(168, 85, 247, 0.15);
+      color: #d8b4fe;
+      border: 1px solid rgba(168, 85, 247, 0.3);
+    }
+
+    .tag-badge.empty-note {
+      font-size: 12px;
+      color: var(--text-dim);
+      font-style: italic;
+    }
+
+    /* -------------------------------------------------------------
+       PILLS & SEVERITY SELECTORS
+       ------------------------------------------------------------- */
+    .pill-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill-btn {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      padding: 9px 14px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .pill-btn:active {
+      transform: scale(0.96);
+    }
+
+    .pill-btn.active {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--accent);
+      color: var(--text-main);
+      font-weight: 600;
+    }
+
+    .intensity-container {
+      margin-bottom: 18px;
+    }
+
+    .intensity-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .intensity-badge {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: var(--bg-surface-elevated);
+      color: var(--text-muted);
+    }
+
+    .score-track {
+      display: flex;
+      gap: 5px;
+      overflow-x: auto;
+      padding: 4px 2px 8px 2px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .score-track::-webkit-scrollbar {
+      display: none;
+    }
+
+    .score-pip {
+      flex: 1;
+      min-width: 32px;
+      height: 42px;
+      border-radius: 8px;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+
+    .score-pip:active {
+      transform: scale(0.92);
+    }
+
+    .score-pip.selected {
+      color: #000;
+      font-weight: 800;
+      border-color: transparent;
+      transform: translateY(-2px);
+    }
+
+    .score-pip.lvl-none.selected { background: var(--emerald); }
+    .score-pip.lvl-low.selected  { background: #a3e635; }
+    .score-pip.lvl-med.selected  { background: var(--amber); }
+    .score-pip.lvl-high.selected { background: var(--rose); color: #fff; }
+
+    /* -------------------------------------------------------------
+       BRISTOL STOOL CHART
+       ------------------------------------------------------------- */
+    .bristol-scroll {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding: 4px 2px 10px 2px;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .bristol-scroll::-webkit-scrollbar {
+      display: none;
+    }
+
+    .bristol-card {
+      flex: 0 0 160px;
+      scroll-snap-align: start;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 12px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: border-color 0.15s, background-color 0.15s;
+    }
+
+    .bristol-card:active {
+      transform: scale(0.97);
+    }
+
+    .bristol-card.selected {
+      background: rgba(56, 189, 248, 0.12);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    .bristol-tag {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .bristol-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+      line-height: 1.25;
+    }
+
+    .bristol-desc {
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.35;
+    }
+
+    /* -------------------------------------------------------------
+       SUBMIT ACTION BUTTONS & SPINNER
+       ------------------------------------------------------------- */
+    .submit-btn {
+      width: 100%;
+      height: 52px;
+      margin-top: 8px;
+      background: var(--accent);
+      color: #04121e;
+      border: none;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      transition: transform 0.1s ease, filter 0.15s;
+    }
+
+    .submit-btn:active {
+      transform: scale(0.98);
+      filter: brightness(0.9);
+    }
+
+    .submit-btn:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-spinner {
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      border: 3px solid rgba(4, 18, 30, 0.25);
+      border-top-color: #04121e;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+
+    .submit-btn.loading .btn-text {
+      visibility: hidden;
+    }
+
+    .submit-btn.loading .btn-spinner {
+      display: block;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* -------------------------------------------------------------
+       SETTINGS DRAWER & MODAL OVERLAY
+       ------------------------------------------------------------- */
+    .drawer-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      z-index: 90;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+
+    .drawer-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 100%;
+      max-width: 420px;
+      height: 100%;
+      background: var(--bg-surface);
+      z-index: 95;
+      box-shadow: -10px 0 30px rgba(0, 0, 0, 0.7);
+      transform: translateX(100%);
+      transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      padding: calc(var(--safe-top) + 12px) 20px calc(var(--safe-bottom) + 20px) 20px;
+      overflow-y: auto;
+    }
+
+    .drawer.open {
+      transform: translateX(0);
+    }
+
+    .drawer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .drawer-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .drawer-close {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      border-radius: 8px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .drawer-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .drawer-helper-text {
+      font-size: 12px;
+      color: var(--text-dim);
+      line-height: 1.4;
+      margin-top: 4px;
+    }
+
+    .btn-save-settings {
+      margin-top: auto;
+      background: var(--emerald);
+      color: #041f17;
+      border: none;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-save-settings:active {
+      filter: brightness(0.9);
+      transform: scale(0.98);
+    }
+
+    /* -------------------------------------------------------------
+       BOTTOM NAVIGATION BAR
+       ------------------------------------------------------------- */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 50;
+      height: calc(var(--nav-height) + var(--safe-bottom));
+      padding-bottom: var(--safe-bottom);
+      background: rgba(9, 9, 11, 0.88);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+    }
+
+    .nav-item {
+      flex: 1;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.15s ease;
+    }
+
+    .nav-item svg {
+      width: 22px;
+      height: 22px;
+      stroke-width: 2;
+      stroke: currentColor;
+      fill: none;
+      transition: stroke 0.15s ease, transform 0.15s ease;
+    }
+
+    .nav-item.active {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .nav-item.active svg {
+      stroke: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    /* -------------------------------------------------------------
+       TOAST NOTIFICATIONS
+       ------------------------------------------------------------- */
+    #toast-container {
+      position: fixed;
+      top: calc(var(--safe-top) + 12px);
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 120;
+      pointer-events: none;
+      width: calc(100% - 32px);
+      max-width: 420px;
+    }
+
+    .toast {
+      pointer-events: auto;
+      margin-bottom: 8px;
+      padding: 13px 16px;
+      border-radius: 14px;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+      animation: toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+
+    .toast.success {
+      background: #064e3b;
+      color: #6ee7b7;
+      border: 1px solid #059669;
+    }
+
+    .toast.error {
+      background: #4c0519;
+      color: #fda4af;
+      border: 1px solid #e11d48;
+    }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(-12px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="app-title" id="view-title">Meals & Intake</div>
+    <div class="header-actions">
+      <div class="badge-sync">
+        <div class="sync-dot"></div>
+        <span>Synced</span>
+      </div>
+      <button type="button" class="icon-btn" id="btn-open-settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Settings Drawer Overlay & Panel -->
+  <div class="drawer-overlay" id="drawer-overlay"></div>
+  <aside class="drawer" id="settings-drawer" aria-label="App Settings">
+    <div class="drawer-header">
+      <div class="drawer-title">Config & Secrets</div>
+      <button type="button" class="drawer-close" id="btn-close-settings">&times;</button>
+    </div>
+    <div class="drawer-body">
+      <div class="form-group">
+        <label for="setting-gemini-key">Gemini API Key</label>
+        <input type="password" id="setting-gemini-key" placeholder="AIzaSy...">
+        <div class="drawer-helper-text">Required for Gemini 3.8 Flash meal deconstruction.</div>
+      </div>
+
+      <div class="form-group">
+        <label for="setting-webhook-url">Google Apps Script Webhook URL</label>
+        <input type="text" id="setting-webhook-url" placeholder="https://script.google.com/macros/s/.../exec">
+        <div class="drawer-helper-text">Target endpoint deployed as a web app.</div>
+      </div>
+
+      <div class="form-group">
+        <label for="setting-passphrase">Secret Passphrase</label>
+        <input type="password" id="setting-passphrase" placeholder="Shared secret token">
+        <div class="drawer-helper-text">Verified by your backend Webhook script.</div>
+      </div>
+
+      <button type="button" class="btn-save-settings" id="btn-save-settings">
+        Save Settings
+      </button>
+    </div>
+  </aside>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <!-- Primary View Area -->
+  <main class="app-main">
+
+    <!-- ========================================================= -->
+    <!-- TAB 1: MEALS & INTAKE                                     -->
+    <!-- ========================================================= -->
+    <section id="tab-meals" class="tab-content active">
+      <form id="form-meals" onsubmit="event.preventDefault(); handleMealSubmit();">
+        <div class="section-card">
+          <div class="card-title">Intake Information</div>
+          
+          <div class="form-group">
+            <label for="meal-timestamp">Time of Meal</label>
+            <input type="datetime-local" id="meal-timestamp" name="meal_timestamp">
+          </div>
+
+          <div class="form-group">
+            <label for="meal-description">Food & Drinks</label>
+            <textarea id="meal-description" name="meal_description" placeholder="e.g., Sourdough toast with garlic spread, 2 poached eggs, black coffee with milk..."></textarea>
+            
+            <div class="ai-action-bar">
+              <button type="button" class="btn-ai" id="btn-analyze-meal" onclick="analyzeMealWithGemini()">
+                <div class="spinner"></div>
+                <span class="ai-label">✨ Analyze Meal (AI)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Deconstructed Ingredients and Triggers -->
+        <div class="section-card" id="meal-ai-card">
+          <div class="card-title">
+            <span>Deconstructed Ingredients</span>
+            <span style="font-size:11px; color:var(--accent);" id="ingredient-count-badge">0 items</span>
+          </div>
+
+          <div class="chips-wrapper" id="ingredients-chip-list">
+            <span class="tag-badge empty-note" id="ingredients-empty-msg">No ingredients decomposed yet. Tap "Analyze Meal" or add manually below.</span>
+          </div>
+
+          <div class="chip-add-box">
+            <input type="text" id="input-new-ingredient" placeholder="Add single ingredient...">
+            <button type="button" class="btn-chip-add" onclick="handleAddIngredientFromInput()">+ Add</button>
+          </div>
+
+          <div class="analysis-section">
+            <label>Potential Triggers Detected</label>
+            <div class="badge-list" id="triggers-list">
+              <span class="tag-badge empty-note">None flagged</span>
+            </div>
+          </div>
+
+          <div class="analysis-section" style="border-top:none; margin-top:10px; padding-top:0;">
+            <label>FODMAP Categories</label>
+            <div class="badge-list" id="fodmap-list">
+              <span class="tag-badge empty-note">None flagged</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="card-title">Eating Dynamics</div>
+
+          <div class="form-group">
+            <label>Meal Speed</label>
+            <div class="pill-grid" data-field="meal_speed">
+              <button type="button" class="pill-btn" data-value="Rushed (<10m)">⚡ Rushed (&lt;10m)</button>
+              <button type="button" class="pill-btn" data-value="Moderate (10-25m)">⏱️ Moderate (10-25m)</button>
+              <button type="button" class="pill-btn" data-value="Mindful (>25m)">🧘 Mindful (&gt;25m)</button>
+            </div>
+            <input type="hidden" id="meal-speed" name="meal_speed">
+          </div>
+
+          <div class="form-group">
+            <label>Post-Meal Movement</label>
+            <div class="pill-grid" data-field="meal_movement">
+              <button type="button" class="pill-btn" data-value="Sedentary">🪑 Sedentary</button>
+              <button type="button" class="pill-btn" data-value="Light Walk">🚶 Light Walk</button>
+              <button type="button" class="pill-btn" data-value="Workout">🏃 Workout</button>
+            </div>
+            <input type="hidden" id="meal-movement" name="meal_movement">
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="card-title">Notes</div>
+          <div class="form-group">
+            <label for="meal-notes">Additional Context</label>
+            <input type="text" id="meal-notes" name="meal_notes" placeholder="e.g., Ate at a restaurant, possible cross-contamination">
+          </div>
+        </div>
+
+        <button type="submit" class="submit-btn" id="btn-submit-meal">
+          <span class="btn-text">Log Meal Entry</span>
+          <div class="btn-spinner"></div>
+        </button>
+      </form>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- TAB 2: SYMPTOMS & REACTIONS                               -->
+    <!-- ========================================================= -->
+    <section id="tab-symptoms" class="tab-content">
+      <form id="form-symptoms" onsubmit="event.preventDefault(); handleSymptomSubmit();">
+        <div class="section-card">
+          <div class="card-title">Timing</div>
+          <div class="form-group">
+            <label for="symptom-timestamp">Logged At</label>
+            <input type="datetime-local" id="symptom-timestamp" name="symptom_timestamp">
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="card-title">Abdominal Sensations</div>
+
+          <!-- Bloating Scale (0 - 10) -->
+          <div class="intensity-container">
+            <div class="intensity-header">
+              <label style="margin:0;">Bloating Severity</label>
+              <span class="intensity-badge" id="badge-bloating">0 - None</span>
+            </div>
+            <div class="score-track" data-target="symptom-bloating" data-badge="badge-bloating"></div>
+            <input type="hidden" id="symptom-bloating" name="symptom_bloating" value="0">
+          </div>
+
+          <!-- Nausea Scale (0 - 10) -->
+          <div class="intensity-container">
+            <div class="intensity-header">
+              <label style="margin:0;">Nausea Level</label>
+              <span class="intensity-badge" id="badge-nausea">0 - None</span>
+            </div>
+            <div class="score-track" data-target="symptom-nausea" data-badge="badge-nausea"></div>
+            <input type="hidden" id="symptom-nausea" name="symptom_nausea" value="0">
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="card-title">Symptom Context</div>
+          <div class="form-group">
+            <label for="symptom-notes">Detailed Sensations</label>
+            <textarea id="symptom-notes" name="symptom_notes" placeholder="Describe the discomfort, location (upper/lower), cramping, or suspected trigger..."></textarea>
+          </div>
+        </div>
+
+        <button type="submit" class="submit-btn" id="btn-submit-symptom">
+          <span class="btn-text">Log Symptoms</span>
+          <div class="btn-spinner"></div>
+        </button>
+      </form>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- TAB 3: PHYSIOLOGICAL CONTEXT                              -->
+    <!-- ========================================================= -->
+    <section id="tab-context" class="tab-content">
+      <form id="form-context" onsubmit="event.preventDefault(); handleContextSubmit();">
+        <div class="section-card">
+          <div class="card-title">Timestamp</div>
+          <div class="form-group">
+            <label for="context-timestamp">Recorded At</label>
+            <input type="datetime-local" id="context-timestamp" name="context_timestamp">
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="card-title">Bristol Stool Chart</div>
+          <label>Select Observed Stool Type</label>
+          <div class="bristol-scroll" id="bristol-chart-selector">
+            <div class="bristol-card" data-type="1">
+              <span class="bristol-tag">Type 1</span>
+              <div class="bristol-title">Hard Lumps</div>
+              <div class="bristol-desc">Separate, hard nuts like pebbles. Hard to pass.</div>
+            </div>
+            <div class="bristol-card" data-type="2">
+              <span class="bristol-tag">Type 2</span>
+              <div class="bristol-title">Lumpy Sausage</div>
+              <div class="bristol-desc">Sausage-shaped but distinctly lumpy and dry.</div>
+            </div>
+            <div class="bristol-card" data-type="3">
+              <span class="bristol-tag">Type 3</span>
+              <div class="bristol-title">Cracked Sausage</div>
+              <div class="bristol-desc">Like a sausage with surface fissures. Normal.</div>
+            </div>
+            <div class="bristol-card" data-type="4">
+              <span class="bristol-tag">Type 4</span>
+              <div class="bristol-title">Smooth & Soft</div>
+              <div class="bristol-desc">Like a smooth snake or sausage. Ideal stool.</div>
+            </div>
+            <div class="bristol-card" data-type="5">
+              <span class="bristol-tag">Type 5</span>
+              <div class="bristol-title">Soft Blobs</div>
+              <div class="bristol-desc">Clear-cut edges, easily passed. Low fiber indicator.</div>
+            </div>
+            <div class="bristol-card" data-type="6">
+              <span class="bristol-tag">Type 6</span>
+              <div class="bristol-title">Mushy Stool</div>
+              <div class="bristol-desc">Fluffy pieces with ragged edges, soft consistency.</div>
+            </div>
+            <div class="bristol-card" data-type="7">
+              <span class="bristol-tag">Type 7</span>
+              <div class="bristol-title">Entirely Liquid</div>
+              <div class="bristol-desc">Watery, no solid pieces. Complete diarrhea.</div>
+            </div>
+          </div>
+          <input type="hidden" id="context-bristol" name="context_bristol">
+        </div>
+
+        <div class="section-card">
+          <div class="card-title">Stress & Hydration State</div>
+          
+          <div class="form-group">
+            <label>Perceived Stress</label>
+            <div class="pill-grid" data-field="context_stress">
+              <button type="button" class="pill-btn" data-value="Low / Rested">😌 Calm</button>
+              <button type="button" class="pill-btn" data-value="Moderate">😐 Moderate</button>
+              <button type="button" class="pill-btn" data-value="High / Pressured">🤯 High</button>
+              <button type="button" class="pill-btn" data-value="Acute Exhaustion">🥀 Burnout</button>
+            </div>
+            <input type="hidden" id="context-stress" name="context_stress">
+          </div>
+
+          <div class="form-group">
+            <label>Recent Hydration</label>
+            <div class="pill-grid" data-field="context_hydration">
+              <button type="button" class="pill-btn" data-value="Underhydrated (<1L)">💧 Low (&lt;1L)</button>
+              <button type="button" class="pill-btn" data-value="Sufficient (1-2L)">🥤 Good (1-2L)</button>
+              <button type="button" class="pill-btn" data-value="Optimal (2.5L+)">🌊 High (2.5L+)</button>
+            </div>
+            <input type="hidden" id="context-hydration" name="context_hydration">
+          </div>
+        </div>
+
+        <button type="submit" class="submit-btn" id="btn-submit-context">
+          <span class="btn-text">Log Context</span>
+          <div class="btn-spinner"></div>
+        </button>
+      </form>
+    </section>
+
+  </main>
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-tab="tab-meals" data-title="Meals & Intake">
+      <svg viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
+      <span>Meals</span>
+    </button>
+    <button class="nav-item" data-tab="tab-symptoms" data-title="Symptom Check">
+      <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+      <span>Symptoms</span>
+    </button>
+    <button class="nav-item" data-tab="tab-context" data-title="Physiological Context">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
+      <span>Context</span>
+    </button>
+  </nav>
+
+  <script>
+    /* =========================================================
+       CONSTANTS & CONFIGURATION KEYS
+       ========================================================= */
+    const STORAGE_PREFIX = "gut_tracker_";
+    const KEY_GEMINI_API = `${STORAGE_PREFIX}gemini_api_key`;
+    const KEY_WEBHOOK_URL = `${STORAGE_PREFIX}webhook_url`;
+    const KEY_PASSPHRASE = `${STORAGE_PREFIX}passphrase`;
+    const STORAGE_KEY_PREFIX_FORM = "gut_tracker_wip_";
+
+    // In-memory state for decomposed items
+    let decomposedIngredients = [];
+    let detectedTriggers = [];
+    let detectedFodmaps = [];
+
+    function getNowLocalISO() {
+      const date = new Date();
+      date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+      return date.toISOString().slice(0, 16);
+    }
+
+    /* =========================================================
+       DRAWER / SETTINGS CONTROLLER
+       ========================================================= */
+    function initSettings() {
+      const drawer = document.getElementById("settings-drawer");
+      const overlay = document.getElementById("drawer-overlay");
+      const btnOpen = document.getElementById("btn-open-settings");
+      const btnClose = document.getElementById("btn-close-settings");
+      const btnSave = document.getElementById("btn-save-settings");
+
+      const inputGemini = document.getElementById("setting-gemini-key");
+      const inputWebhook = document.getElementById("setting-webhook-url");
+      const inputPassphrase = document.getElementById("setting-passphrase");
+
+      // Prepopulate
+      inputGemini.value = localStorage.getItem(KEY_GEMINI_API) || "";
+      inputWebhook.value = localStorage.getItem(KEY_WEBHOOK_URL) || "";
+      inputPassphrase.value = localStorage.getItem(KEY_PASSPHRASE) || "";
+
+      function openDrawer() {
+        drawer.classList.add("open");
+        overlay.classList.add("open");
+      }
+
+      function closeDrawer() {
+        drawer.classList.remove("open");
+        overlay.classList.remove("open");
+      }
+
+      btnOpen.addEventListener("click", openDrawer);
+      btnClose.addEventListener("click", closeDrawer);
+      overlay.addEventListener("click", closeDrawer);
+
+      btnSave.addEventListener("click", () => {
+        localStorage.setItem(KEY_GEMINI_API, inputGemini.value.trim());
+        localStorage.setItem(KEY_WEBHOOK_URL, inputWebhook.value.trim());
+        localStorage.setItem(KEY_PASSPHRASE, inputPassphrase.value.trim());
+        closeDrawer();
+        showToast("Settings saved successfully!", "success");
+      });
+    }
+
+    /* =========================================================
+       SUBMISSION VALIDATION GUARD
+       ========================================================= */
+    function checkSubmissionGuard() {
+      const webhookUrl = localStorage.getItem(KEY_WEBHOOK_URL) || "";
+      const passphrase = localStorage.getItem(KEY_PASSPHRASE) || "";
+
+      if (!webhookUrl.trim() || !passphrase.trim()) {
+        showToast("Please configure your Webhook URL and Passphrase in Settings.", "error");
+        return false;
+      }
+      return true;
+    }
+
+    /* =========================================================
+       AUTHENTICATED TRANSMISSION (GENERIC HELPER)
+       ========================================================= */
+    async function postToWebhook(targetTab, rowData) {
+      const webhookUrl = localStorage.getItem(KEY_WEBHOOK_URL) || "";
+      const passphrase = localStorage.getItem(KEY_PASSPHRASE) || "";
+
+      const payload = {
+        auth_token: passphrase,
+        target_tab: targetTab,
+        row_data: rowData
+      };
+
+      // mode: 'no-cors' allows submission to Google Apps Script Web App without CORS preflight failures
+      await fetch(webhookUrl, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8"
+        },
+        body: JSON.stringify(payload)
+      });
+    }
+
+    /* =========================================================
+       GEMINI 3.8 FLASH MEAL DECOMPOSITION
+       ========================================================= */
+    async function analyzeMealWithGemini() {
+      const apiKey = (localStorage.getItem(KEY_GEMINI_API) || "").trim();
+      if (!apiKey) {
+        showToast("Please enter your Gemini API Key in Settings.", "error");
+        return;
+      }
+
+      const mealInput = document.getElementById("meal-description").value.trim();
+      if (!mealInput) {
+        showToast("Enter a meal description first to analyze.", "error");
+        return;
+      }
+
+      const btnAnalyze = document.getElementById("btn-analyze-meal");
+      btnAnalyze.classList.add("loading");
+      btnAnalyze.disabled = true;
+
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
+
+      const systemPrompt = `You are an expert clinical nutrition and digestive health AI.
+Deconstruct the user's meal into individual atomic ingredients and detect gastrointestinal triggers.
+Specifically flag:
+1) Common hidden triggers: garlic, onion, gluten, lactose, high-fructose corn syrup (HFCS), excess polyols.
+2) Tag FODMAP categories (Fructans, GOS, Lactose, Fructose, Sorbitol, Mannitol).
+
+Respond ONLY with valid, raw JSON matching this structure:
+{
+  "ingredients": ["item 1", "item 2"],
+  "triggers": ["garlic", "gluten"],
+  "fodmap_categories": ["Fructans (garlic)", "Oligosaccharides"]
+}`;
+
+      const requestBody = {
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: `${systemPrompt}\n\nUser Meal:\n"${mealInput}"` }]
+          }
+        ],
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
+      };
+
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData?.error?.message || `HTTP error ${response.status}`);
+        }
+
+        const data = await response.json();
+        const rawJsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!rawJsonText) throw new Error("No data returned from Gemini.");
+
+        const parsed = JSON.parse(rawJsonText);
+
+        decomposedIngredients = Array.isArray(parsed.ingredients) ? parsed.ingredients : [];
+        detectedTriggers = Array.isArray(parsed.triggers) ? parsed.triggers : [];
+        detectedFodmaps = Array.isArray(parsed.fodmap_categories) ? parsed.fodmap_categories : [];
+
+        renderDeconstructedUI();
+        saveFormState("form-meals");
+        showToast("Meal decomposed into atomic ingredients!", "success");
+      } catch (err) {
+        console.error("Gemini Error:", err);
+        showToast(`AI Analysis failed: ${err.message}`, "error");
+      } finally {
+        btnAnalyze.classList.remove("loading");
+        btnAnalyze.disabled = false;
+      }
+    }
+
+    function renderDeconstructedUI() {
+      const chipList = document.getElementById("ingredients-chip-list");
+      const emptyMsg = document.getElementById("ingredients-empty-msg");
+      const countBadge = document.getElementById("ingredient-count-badge");
+      const triggersList = document.getElementById("triggers-list");
+      const fodmapList = document.getElementById("fodmap-list");
+
+      chipList.innerHTML = "";
+      triggersList.innerHTML = "";
+      fodmapList.innerHTML = "";
+
+      countBadge.textContent = `${decomposedIngredients.length} item${decomposedIngredients.length === 1 ? '' : 's'}`;
+
+      if (decomposedIngredients.length === 0) {
+        if (emptyMsg) chipList.appendChild(emptyMsg);
+        else {
+          chipList.innerHTML = `<span class="tag-badge empty-note" id="ingredients-empty-msg">No ingredients decomposed yet.</span>`;
+        }
+      } else {
+        decomposedIngredients.forEach((item, index) => {
+          const chip = document.createElement("span");
+          chip.className = "chip";
+          chip.innerHTML = `<span>${item}</span><button type="button" class="chip-remove" onclick="removeIngredient(${index})" aria-label="Remove">&times;</button>`;
+          chipList.appendChild(chip);
+        });
+      }
+
+      // Triggers
+      if (detectedTriggers.length === 0) {
+        triggersList.innerHTML = `<span class="tag-badge empty-note">None flagged</span>`;
+      } else {
+        detectedTriggers.forEach(trig => {
+          const b = document.createElement("span");
+          b.className = "tag-badge trigger";
+          b.textContent = `⚠️ ${trig}`;
+          triggersList.appendChild(b);
+        });
+      }
+
+      // FODMAPs
+      if (detectedFodmaps.length === 0) {
+        fodmapList.innerHTML = `<span class="tag-badge empty-note">None flagged</span>`;
+      } else {
+        detectedFodmaps.forEach(fod => {
+          const b = document.createElement("span");
+          b.className = "tag-badge fodmap";
+          b.textContent = `🔬 ${fod}`;
+          fodmapList.appendChild(b);
+        });
+      }
+    }
+
+    function removeIngredient(index) {
+      decomposedIngredients.splice(index, 1);
+      renderDeconstructedUI();
+      saveFormState("form-meals");
+    }
+
+    function handleAddIngredientFromInput() {
+      const input = document.getElementById("input-new-ingredient");
+      const val = input.value.trim();
+      if (!val) return;
+      decomposedIngredients.push(val);
+      input.value = "";
+      renderDeconstructedUI();
+      saveFormState("form-meals");
+    }
+
+    /* =========================================================
+       FORM SUBMISSIONS (AUTHENTICATED WEBHOOKS)
+       ========================================================= */
+    async function handleMealSubmit() {
+      if (!checkSubmissionGuard()) return;
+
+      const form = document.getElementById("form-meals");
+      const desc = document.getElementById("meal-description").value.trim();
+      
+      if (!desc && decomposedIngredients.length === 0) {
+        showToast("Please enter food or drink items.", "error");
+        return;
+      }
+
+      setButtonLoading("btn-submit-meal", true);
+
+      const timestamp = document.getElementById("meal-timestamp").value || getNowLocalISO();
+      const speed = document.getElementById("meal-speed").value || "Unspecified";
+      const movement = document.getElementById("meal-movement").value || "Unspecified";
+      const notes = document.getElementById("meal-notes").value || "";
+      const ingredientsStr = decomposedIngredients.join(", ");
+      const triggersStr = detectedTriggers.join(", ");
+      const fodmapsStr = detectedFodmaps.join(", ");
+
+      const rowData = [
+        timestamp,
+        desc,
+        ingredientsStr,
+        triggersStr,
+        fodmapsStr,
+        speed,
+        movement,
+        notes
+      ];
+
+      try {
+        await postToWebhook("Meals", rowData);
+        showToast("Meal entry saved and synchronized!", "success");
+        clearFormDraft("form-meals");
+        decomposedIngredients = [];
+        detectedTriggers = [];
+        detectedFodmaps = [];
+        renderDeconstructedUI();
+      } catch (err) {
+        console.error(err);
+        showToast("Failed to transmit meal entry.", "error");
+      } finally {
+        setButtonLoading("btn-submit-meal", false);
+      }
+    }
+
+    async function handleSymptomSubmit() {
+      if (!checkSubmissionGuard()) return;
+
+      setButtonLoading("btn-submit-symptom", true);
+
+      const timestamp = document.getElementById("symptom-timestamp").value || getNowLocalISO();
+      const bloating = document.getElementById("symptom-bloating").value || "0";
+      const nausea = document.getElementById("symptom-nausea").value || "0";
+      const notes = document.getElementById("symptom-notes").value || "";
+
+      const rowData = [
+        timestamp,
+        bloating,
+        nausea,
+        notes
+      ];
+
+      try {
+        await postToWebhook("Symptoms", rowData);
+        showToast("Symptoms recorded and synchronized!", "success");
+        clearFormDraft("form-symptoms");
+      } catch (err) {
+        console.error(err);
+        showToast("Failed to record symptoms.", "error");
+      } finally {
+        setButtonLoading("btn-submit-symptom", false);
+      }
+    }
+
+    async function handleContextSubmit() {
+      if (!checkSubmissionGuard()) return;
+
+      setButtonLoading("btn-submit-context", true);
+
+      const timestamp = document.getElementById("context-timestamp").value || getNowLocalISO();
+      const bristol = document.getElementById("context-bristol").value || "None";
+      const stress = document.getElementById("context-stress").value || "Unspecified";
+      const hydration = document.getElementById("context-hydration").value || "Unspecified";
+
+      const rowData = [
+        timestamp,
+        bristol ? `Type ${bristol}` : "None",
+        stress,
+        hydration
+      ];
+
+      try {
+        await postToWebhook("Context", rowData);
+        showToast("Context logged and synchronized!", "success");
+        clearFormDraft("form-context");
+      } catch (err) {
+        console.error(err);
+        showToast("Failed to save context.", "error");
+      } finally {
+        setButtonLoading("btn-submit-context", false);
+      }
+    }
+
+    /* =========================================================
+       STATE PERSISTENCE & RESTORATION
+       ========================================================= */
+    function saveFormState(formId) {
+      const form = document.getElementById(formId);
+      if (!form) return;
+      const data = {};
+      const inputs = form.querySelectorAll("input, textarea, select");
+      inputs.forEach(input => {
+        if (input.name) data[input.name] = input.value;
+      });
+
+      if (formId === "form-meals") {
+        data["_decomposed"] = decomposedIngredients;
+        data["_triggers"] = detectedTriggers;
+        data["_fodmaps"] = detectedFodmaps;
+      }
+
+      localStorage.setItem(STORAGE_KEY_PREFIX_FORM + formId, JSON.stringify(data));
+    }
+
+    function restoreFormState(formId) {
+      const saved = localStorage.getItem(STORAGE_KEY_PREFIX_FORM + formId);
+      const form = document.getElementById(formId);
+      if (!form) return;
+
+      let data = {};
+      if (saved) {
+        try { data = JSON.parse(saved); } catch (e) { data = {}; }
+      }
+
+      const inputs = form.querySelectorAll("input, textarea, select");
+      inputs.forEach(input => {
+        if (!input.name) return;
+        if (data[input.name] !== undefined && data[input.name] !== "") {
+          input.value = data[input.name];
+        } else if (input.type === "datetime-local" && !input.value) {
+          input.value = getNowLocalISO();
+        }
+      });
+
+      // Synchronize visual pill buttons
+      form.querySelectorAll(".pill-grid").forEach(grid => {
+        const fieldName = grid.dataset.field;
+        const val = data[fieldName];
+        if (val) {
+          grid.querySelectorAll(".pill-btn").forEach(btn => {
+            if (btn.dataset.value === val) btn.classList.add("active");
+            else btn.classList.remove("active");
+          });
+        }
+      });
+
+      // Synchronize Bristol selection
+      if (formId === "form-context") {
+        const selectedType = data["context_bristol"];
+        if (selectedType) {
+          document.querySelectorAll(".bristol-card").forEach(card => {
+            if (card.dataset.type === selectedType) card.classList.add("selected");
+          });
+        }
+      }
+
+      // Synchronize 0-10 intensity tracks
+      if (formId === "form-symptoms") {
+        ["symptom-bloating", "symptom-nausea"].forEach(id => {
+          const val = parseInt(data[id] || "0", 10);
+          updateSeveritySelectorUI(id, val);
+        });
+      }
+
+      // Restore AI Ingredients if on meals
+      if (formId === "form-meals") {
+        decomposedIngredients = Array.isArray(data["_decomposed"]) ? data["_decomposed"] : [];
+        detectedTriggers = Array.isArray(data["_triggers"]) ? data["_triggers"] : [];
+        detectedFodmaps = Array.isArray(data["_fodmaps"]) ? data["_fodmaps"] : [];
+        renderDeconstructedUI();
+      }
+    }
+
+    function clearFormDraft(formId) {
+      localStorage.removeItem(STORAGE_KEY_PREFIX_FORM + formId);
+      const form = document.getElementById(formId);
+      if (!form) return;
+      form.reset();
+      
+      form.querySelectorAll('input[type="datetime-local"]').forEach(inp => inp.value = getNowLocalISO());
+      form.querySelectorAll(".pill-btn").forEach(b => b.classList.remove("active"));
+      form.querySelectorAll('input[type="hidden"]').forEach(h => h.value = "");
+      
+      if (formId === "form-context") {
+        document.querySelectorAll(".bristol-card").forEach(c => c.classList.remove("selected"));
+      }
+      if (formId === "form-symptoms") {
+        updateSeveritySelectorUI("symptom-bloating", 0);
+        updateSeveritySelectorUI("symptom-nausea", 0);
+      }
+      if (formId === "form-meals") {
+        decomposedIngredients = [];
+        detectedTriggers = [];
+        detectedFodmaps = [];
+        renderDeconstructedUI();
+      }
+    }
+
+    /* =========================================================
+       UI CONTROLS (PILLS, SEVERITY SCALES, BRISTOL)
+       ========================================================= */
+    function getSeverityCategory(val) {
+      if (val === 0) return { label: "None", css: "lvl-none" };
+      if (val <= 3) return { label: "Mild", css: "lvl-low" };
+      if (val <= 6) return { label: "Moderate", css: "lvl-med" };
+      return { label: "Severe", css: "lvl-high" };
+    }
+
+    function initSeverityTracks() {
+      document.querySelectorAll(".score-track").forEach(track => {
+        const targetInputId = track.dataset.target;
+        track.innerHTML = "";
+        for (let i = 0; i <= 10; i++) {
+          const pip = document.createElement("button");
+          pip.type = "button";
+          pip.className = "score-pip";
+          pip.textContent = i;
+          pip.dataset.val = i;
+
+          pip.addEventListener("click", () => {
+            const hiddenInput = document.getElementById(targetInputId);
+            hiddenInput.value = i;
+            updateSeveritySelectorUI(targetInputId, i);
+            saveFormState("form-symptoms");
+          });
+
+          track.appendChild(pip);
+        }
+      });
+    }
+
+    function updateSeveritySelectorUI(targetInputId, val) {
+      const track = document.querySelector(`.score-track[data-target="${targetInputId}"]`);
+      if (!track) return;
+      const badgeId = track.dataset.badge;
+      const badge = document.getElementById(badgeId);
+      const cat = getSeverityCategory(val);
+
+      if (badge) badge.textContent = `${val} - ${cat.label}`;
+
+      track.querySelectorAll(".score-pip").forEach(pip => {
+        const pVal = parseInt(pip.dataset.val, 10);
+        pip.className = "score-pip";
+        if (pVal === val) pip.classList.add("selected", cat.css);
+      });
+    }
+
+    function setupPillSelectors() {
+      document.querySelectorAll(".pill-grid").forEach(grid => {
+        const fieldName = grid.dataset.field;
+        const targetInput = document.querySelector(`input[name="${fieldName}"]`);
+        
+        grid.querySelectorAll(".pill-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const isAlreadyActive = btn.classList.contains("active");
+            grid.querySelectorAll(".pill-btn").forEach(b => b.classList.remove("active"));
+            
+            if (!isAlreadyActive) {
+              btn.classList.add("active");
+              if (targetInput) targetInput.value = btn.dataset.value;
+            } else {
+              if (targetInput) targetInput.value = "";
+            }
+
+            const form = grid.closest("form");
+            if (form) saveFormState(form.id);
+          });
+        });
+      });
+    }
+
+    function setupBristolSelector() {
+      const container = document.getElementById("bristol-chart-selector");
+      const hiddenInput = document.getElementById("context-bristol");
+      if (!container) return;
+
+      container.querySelectorAll(".bristol-card").forEach(card => {
+        card.addEventListener("click", () => {
+          const isSelected = card.classList.contains("selected");
+          container.querySelectorAll(".bristol-card").forEach(c => c.classList.remove("selected"));
+
+          if (!isSelected) {
+            card.classList.add("selected");
+            hiddenInput.value = card.dataset.type;
+          } else {
+            hiddenInput.value = "";
+          }
+          saveFormState("form-context");
+        });
+      });
+    }
+
+    function setupTabNavigation() {
+      const navItems = document.querySelectorAll(".nav-item");
+      const views = document.querySelectorAll(".tab-content");
+      const titleElem = document.getElementById("view-title");
+
+      navItems.forEach(item => {
+        item.addEventListener("click", () => {
+          const targetTabId = item.dataset.tab;
+          const targetTitle = item.dataset.title;
+
+          navItems.forEach(n => n.classList.remove("active"));
+          views.forEach(v => v.classList.remove("active"));
+
+          item.classList.add("active");
+          const targetView = document.getElementById(targetTabId);
+          if (targetView) targetView.classList.add("active");
+          if (titleElem) titleElem.textContent = targetTitle;
+
+          window.scrollTo({ top: 0, behavior: 'instant' });
+        });
+      });
+    }
+
+    function showToast(message, type = "success") {
+      const container = document.getElementById("toast-container");
+      const toast = document.createElement("div");
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = "0";
+        toast.style.transform = "translateY(-10px) scale(0.95)";
+        setTimeout(() => toast.remove(), 250);
+      }, 3400);
+    }
+
+    function setButtonLoading(buttonId, isLoading) {
+      const btn = document.getElementById(buttonId);
+      if (!btn) return;
+      if (isLoading) {
+        btn.classList.add("loading");
+        btn.disabled = true;
+      } else {
+        btn.classList.remove("loading");
+        btn.disabled = false;
+      }
+    }
+
+    /* =========================================================
+       INITIALIZATION
+       ========================================================= */
+    document.addEventListener("DOMContentLoaded", () => {
+      initSettings();
+      initSeverityTracks();
+      setupPillSelectors();
+      setupBristolSelector();
+      setupTabNavigation();
+
+      // Enter key helper for the ingredient addition input
+      const addIngInput = document.getElementById("input-new-ingredient");
+      if (addIngInput) {
+        addIngInput.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            handleAddIngredientFromInput();
+          }
+        });
+      }
+
+      // Restore stored forms
+      const forms = ["form-meals", "form-symptoms", "form-context"];
+      forms.forEach(formId => {
+        restoreFormState(formId);
+        const formElem = document.getElementById(formId);
+        if (formElem) {
+          formElem.addEventListener("input", () => saveFormState(formId));
+          formElem.addEventListener("change", () => saveFormState(formId));
+        }
+      });
+    });
+  </script>
+</body>
+</html>
